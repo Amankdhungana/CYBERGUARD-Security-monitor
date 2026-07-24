@@ -56,8 +56,11 @@ Monitoring System    Python, customtkinter, sqlite3
 Key Considerations
 
 Educational Purpose Only – Designed for training and controlled testing
+
 Authorized Testing – Only use on systems you own or have explicit permission to test
+
 Local Environment – Keep testing within your isolated network
+
 Legal Compliance – Unauthorized access is illegal in most jurisdictions
 
 
