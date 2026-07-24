@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}Security Events - Admin{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar">
+        <h3>Admin Console</h3>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
+                <li><a href="{{ url_for('admin.view_logs') }}">Activity Logs</a></li>
+                <li><a href="{{ url_for('admin.view_security_events') }}">Security Events</a></li>
+                <li><a href="{{ url_for('files.list_files') }}">Company Files</a></li>
+                <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+            </ul>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <h1>Security Events</h1>
+        
+        <div class="dashboard-cards">
+            <div class="card">
+                <h3>Total Events</h3>
+                <div class="value">{{ events|length }}</div>
+            </div>
+            <div class="card">
+                <h3>High Severity</h3>
+                <div class="value" style="color: red;">{{ events|selectattr('severity', 'equalto', 'high')|list|length }}</div>
+            </div>
+            <div class="card">
+                <h3>Unresolved</h3>
+                <div class="value" style="color: orange;">{{ events|selectattr('resolved', 'equalto', false)|list|length }}</div>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Event Type</th>
+                    <th>Source IP</th>
+                    <th>Endpoint</th>
+                    <th>Severity</th>
+                    <th>Status</th>
+                    <th>Recommendation</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for event in events %}
+                <tr>
+                    <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ event.event_type }}</td>
+                    <td>{{ event.source_ip }}</td>
+                    <td>{{ event.target_endpoint }}</td>
+                    <td>
+                        {% if event.severity == 'high' %}
+                            <span style="color: red; font-weight: bold;">HIGH</span>
+                        {% elif event.severity == 'medium' %}
+                            <span style="color: orange; font-weight: bold;">MEDIUM</span>
+                        {% else %}
+                            <span style="color: green; font-weight: bold;">LOW</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if event.resolved %}
+                            <span style="color: green;">Resolved</span>
+                        {% else %}
+                            <span style="color: red;">Unresolved</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ event.recommendation or 'None' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

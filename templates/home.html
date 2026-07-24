@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Enterprise Security Solutions{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-content">
+        <h1>Secure Your Digital Future</h1>
+        <p>Enterprise-grade cybersecurity solutions for modern businesses</p>
+        <div class="hero-buttons">
+            <a href="{{ url_for('auth.employee_login') }}" class="btn-primary">Employee Portal</a>
+            <a href="{{ url_for('auth.admin_login') }}" class="btn-secondary">Admin Portal</a>
+        </div>
+    </div>
+</section>
+
+<section class="services">
+    <div class="container">
+        <h2 style="text-align: center; margin-bottom: 1rem;">Our Security Services</h2>
+        <p style="text-align: center; color: var(--text-light); margin-bottom: 3rem;">Comprehensive protection for your enterprise infrastructure</p>
+        
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">🛡️</div>
+                <h3>Threat Detection</h3>
+                <p>Real-time monitoring and advanced threat detection systems to identify potential security breaches.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">🔒</div>
+                <h3>Data Protection</h3>
+                <p>End-to-end encryption and data loss prevention for sensitive business information.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">📊</div>
+                <h3>Compliance Management</h3>
+                <p>Ensure regulatory compliance with automated monitoring and reporting tools.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">🚨</div>
+                <h3>Incident Response</h3>
+                <p>24/7 incident response team ready to handle security emergencies.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="stats">
+    <div class="container">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-number">99.9%</div>
+                <p>Threat Prevention Rate</p>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">24/7</div>
+                <p>Security Monitoring</p>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">500+</div>
+                <p>Enterprise Clients</p>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">15min</div>
+                <p>Average Response Time</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section>
+    <div class="container">
+        <h2 style="text-align: center; margin-bottom: 2rem;">Why Choose Replicated Company?</h2>
+        <div style="max-width: 800px; margin: 0 auto;">
+            <p style="margin-bottom: 1rem;">Replicated Company Limited is a leading provider of enterprise cybersecurity solutions, serving Fortune 500 companies and government agencies worldwide. Our advanced threat intelligence platform combines AI-driven analytics with human expertise to provide comprehensive protection against evolving cyber threats.</p>
+            <p>With our state-of-the-art security operations center (SOC) and certified security professionals, we ensure your business remains protected around the clock.</p>
+        </div>
+    </div>
+</section>
+{% endblock %}

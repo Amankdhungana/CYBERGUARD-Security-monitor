@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Company Files - Replicated Company</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <h3>Document Portal</h3>
+            <nav>
+                <ul>
+                    {% if role == 'admin' %}
+                    <li><a href="{{ url_for('admin.admin_dashboard') }}">Admin Dashboard</a></li>
+                    {% else %}
+                    <li><a href="{{ url_for('employee.employee_dashboard') }}">Employee Dashboard</a></li>
+                    {% endif %}
+                    <li><a href="{{ url_for('files.list_files') }}">Company Files</a></li>
+                    <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+                </ul>
+            </nav>
+        </div>
+        
+        <div class="main-content">
+            <h1>Company Document Repository</h1>
+            
+            {% for category, file_list in files.items() %}
+            <h2 style="margin-top: 2rem;">{{ category|title }} Documents</h2>
+            <table>
+                <thead>
+                    <tr><th>Filename</th><th>Size</th><th>Type</th><th>Action</th></tr>
+                </thead>
+                <tbody>
+                    {% for file in file_list %}
+                    <tr>
+                        <td>{{ file.name }}</td>
+                        <td>{{ file.size }}</td>
+                        <td>{{ file.type }}</td>
+                        <td><a href="{{ url_for('files.download_file', filename=file.name) }}" class="btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.875rem;">Download</a></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% endfor %}
+        </div>
+    </div>
+</body>
+</html>
