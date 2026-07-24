@@ -3,10 +3,13 @@ from extensions import db
 from models.activity_log import ActivityLog
 from models.security_event import SecurityEvent
 from models.behavior_log import BehaviorLog
+from flask import request, session, has_request_context
 import uuid
 
 def get_session_id():
-    return str(uuid.uuid4())
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    return session['session_id']
 
 def get_user_info():
     from flask_login import current_user
@@ -28,9 +31,37 @@ def get_user_info():
     
     return user_info
 
+def check_ddos_attack(ip_address):
+    """Detect DDoS/DoS attacks from activity logs"""
+    try:
+        from datetime import datetime, timedelta
+        from models.activity_log import ActivityLog
+        
+        one_minute_ago = datetime.utcnow() - timedelta(minutes=1)
+        count = ActivityLog.query.filter(
+            ActivityLog.ip_address == ip_address,
+            ActivityLog.timestamp > one_minute_ago
+        ).count()
+        
+        if count > 30:
+            log_security_event(
+                event_type='ddos_attack_detected',
+                source_ip=ip_address,
+                target_endpoint='/',
+                severity='high',
+                description=f'DDoS/DoS attack detected from IP {ip_address}. {count} requests in 1 minute.'
+            )
+            return True
+    except Exception as e:
+        print(f"Error checking DDoS: {e}")
+    return False
+
 def log_activity(user, action, event_type, ip_address, 
                  status='success', details=None, endpoint=None, page_accessed=None):
     try:
+        # Check for DDoS attack
+        check_ddos_attack(ip_address)
+        
         user_info = get_user_info()
         page = page_accessed or endpoint
         
@@ -52,10 +83,12 @@ def log_activity(user, action, event_type, ip_address,
         
         db.session.add(log_entry)
         db.session.commit()
+        return True
         
     except Exception as e:
         print(f"Failed to log activity: {e}")
         db.session.rollback()
+        return False
 
 def log_security_event(event_type, source_ip, target_endpoint, 
                        description, user=None, severity='low'):
@@ -77,10 +110,12 @@ def log_security_event(event_type, source_ip, target_endpoint,
         
         db.session.add(event)
         db.session.commit()
+        return True
         
     except Exception as e:
         print(f"Failed to log security event: {e}")
         db.session.rollback()
+        return False
 
 def log_behavior(employee_id, username, behavior_type, activity, 
                  ip_address=None, page_accessed=None, details=None, risk_level='low'):

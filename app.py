@@ -1,48 +1,116 @@
-"""
-Main Flask Application - Entry point for the company system
-"""
 import os
+import time
+import threading
+import sqlite3
+from datetime import datetime, timedelta
 from flask import Flask, render_template, request, flash
-from datetime import datetime
 from extensions import db, login_manager
 
-# Create necessary directories
 os.makedirs('database', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
 
+
+def ensure_unique_ddos_index():
+    """
+    Creates a partial unique index so SQLite guarantees only
+    ONE UNRESOLVED 'ddos_attack_detected' row can ever exist.
+    Once resolved (resolved=1), a NEW alert can be created.
+    """
+    try:
+        conn = sqlite3.connect('database/company.db')
+        
+        # Drop old index if exists
+        conn.execute('DROP INDEX IF EXISTS idx_one_ddos_alert')
+        
+        # Create new index - only blocks UNRESOLVED alerts
+        conn.execute('''
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_one_ddos_alert
+            ON security_events(event_type)
+            WHERE event_type = 'ddos_attack_detected' AND resolved = 0
+        ''')
+        conn.commit()
+        conn.close()
+        print("✅ Unique index created: only one UNRESOLVED DDoS alert allowed")
+    except Exception as e:
+        print(f"⚠️ Could not create unique index: {e}")
+
+
+def ddos_monitor():
+    while True:
+        try:
+            conn = sqlite3.connect('database/company.db')
+            cursor = conn.cursor()
+
+            one_minute_ago = (datetime.now() - timedelta(minutes=1)).isoformat()
+            cursor.execute('''
+                SELECT ip_address, COUNT(*) as count 
+                FROM activity_logs 
+                WHERE timestamp > ?
+                GROUP BY ip_address 
+                HAVING COUNT(*) > 30
+                LIMIT 1
+            ''', (one_minute_ago,))
+
+            attack = cursor.fetchone()
+
+            if attack:
+                ip, count = attack
+                try:
+                    cursor.execute('''
+                        INSERT INTO security_events 
+                        (event_type, severity, source_ip, target_endpoint, description, timestamp, resolved)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        'ddos_attack_detected',
+                        'high',
+                        ip,
+                        '/',
+                        f'DDoS attack from IP {ip}. {count} requests.',
+                        datetime.now().isoformat(),
+                        0  # UNRESOLVED
+                    ))
+                    conn.commit()
+                    print("✅ DDoS alert created")
+                except sqlite3.IntegrityError:
+                    # Unresolved alert already exists - this is expected
+                    pass
+
+            conn.close()
+
+        except Exception as e:
+            print(f"⚠️ ddos_monitor error: {e}")
+
+        time.sleep(60)
+
+
 def create_app(config_name='default'):
-    """Create and configure the Flask application"""
     app = Flask(__name__)
-    
     from config import config
     app.config.from_object(config[config_name])
-    
-    # Initialize extensions
+
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.employee_login'
     login_manager.login_message = 'Please log in to access this page.'
-    
+
     from models.user import User
-    
+
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
-    
-    # Register blueprints
+
     from routes.auth import auth_bp
     from routes.employee import employee_bp
     from routes.admin import admin_bp
     from routes.files import files_bp
-    
+
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(employee_bp, url_prefix='/employee')
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(files_bp, url_prefix='/files')
-    
+
     @app.route('/')
     def home():
-        """Homepage - Company landing page"""
         from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
@@ -53,7 +121,6 @@ def create_app(config_name='default'):
             endpoint='/',
             details='Home page viewed'
         )
-        
         log_behavior(
             employee_id=None,
             username='anonymous',
@@ -63,12 +130,10 @@ def create_app(config_name='default'):
             risk_level='low',
             ip_address=request.remote_addr
         )
-        
         return render_template('home.html')
-    
+
     @app.route('/about')
     def about():
-        """About page"""
         from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
@@ -79,7 +144,6 @@ def create_app(config_name='default'):
             endpoint='/about',
             details='About page viewed'
         )
-        
         log_behavior(
             employee_id=None,
             username='anonymous',
@@ -89,12 +153,10 @@ def create_app(config_name='default'):
             risk_level='low',
             ip_address=request.remote_addr
         )
-        
         return render_template('about.html')
-    
+
     @app.route('/services')
     def services():
-        """Services page"""
         from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
@@ -105,7 +167,6 @@ def create_app(config_name='default'):
             endpoint='/services',
             details='Services page viewed'
         )
-        
         log_behavior(
             employee_id=None,
             username='anonymous',
@@ -115,20 +176,18 @@ def create_app(config_name='default'):
             risk_level='low',
             ip_address=request.remote_addr
         )
-        
         return render_template('services.html')
-    
+
     @app.route('/contact', methods=['GET', 'POST'])
     def contact():
-        """Contact page with form submission"""
         from utils.logger import log_activity, log_behavior
-        
+
         if request.method == 'POST':
             name = request.form.get('name')
             email = request.form.get('email')
             subject = request.form.get('subject')
             message = request.form.get('message')
-            
+
             log_activity(
                 user='anonymous',
                 action='contact_form_submission',
@@ -138,7 +197,6 @@ def create_app(config_name='default'):
                 endpoint='/contact',
                 details=f'Contact form from {name} ({email}) - Subject: {subject}'
             )
-            
             log_behavior(
                 employee_id=None,
                 username='anonymous',
@@ -148,10 +206,9 @@ def create_app(config_name='default'):
                 risk_level='low',
                 ip_address=request.remote_addr
             )
-            
             flash('Your message has been sent. We\'ll get back to you soon!', 'success')
             return render_template('contact.html')
-        
+
         log_activity(
             user='anonymous',
             action='page_view',
@@ -161,7 +218,6 @@ def create_app(config_name='default'):
             endpoint='/contact',
             details='Contact page viewed'
         )
-        
         log_behavior(
             employee_id=None,
             username='anonymous',
@@ -171,12 +227,10 @@ def create_app(config_name='default'):
             risk_level='low',
             ip_address=request.remote_addr
         )
-        
         return render_template('contact.html')
-    
+
     @app.errorhandler(403)
     def forbidden(error):
-        """403 Forbidden handler"""
         from utils.logger import log_security_event, log_behavior
         log_security_event(
             event_type='unauthorized_access',
@@ -184,7 +238,6 @@ def create_app(config_name='default'):
             target_endpoint=request.path,
             description=f'Unauthorized access attempt to {request.path}'
         )
-        
         log_behavior(
             employee_id=None,
             username='anonymous',
@@ -194,37 +247,35 @@ def create_app(config_name='default'):
             risk_level='high',
             ip_address=request.remote_addr
         )
-        
         return render_template('errors/403.html'), 403
-    
+
     @app.errorhandler(404)
     def not_found(error):
-        """404 Not Found handler"""
         return render_template('errors/404.html'), 404
-    
+
     return app
 
-# Create app instance
+
 app = create_app('development')
+
+# Make sure the DB-level guard against duplicate DDoS alerts exists
+ensure_unique_ddos_index()
+
+thread = threading.Thread(target=ddos_monitor, daemon=True)
+thread.start()
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         from database.seed_data import seed_database
         seed_database()
-    
-    print("\n" + "="*50)
-    print("🚀 Replicated Company Limited Server Running")
-    print("="*50)
-    print(f"📍 Local:    http://localhost:5001")
-    print(f"📍 Network:  http://192.168.101.2:5001")
-    print("="*50)
-    print("🔑 Login Credentials:")
-    print("   Admin:    john.smith / Admin@123")
-    print("   Employee: Any employee / Employee@123")
-    print("="*50)
-    print("⚠️  Press CTRL+C to stop the server")
-    print("="*50 + "\n")
-    
-    app.run(host='0.0.0.0', port=5001, debug=True)
-    
+
+    print("\n" + "=" * 50)
+    print("🚀 Server Running")
+    print("📍 http://localhost:5001")
+    print("=" * 50)
+    print("🛡️ Only ONE UNRESOLVED DDoS alert allowed")
+    print("   Resolve it to allow a NEW alert")
+    print("=" * 50)
+
+    app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)
