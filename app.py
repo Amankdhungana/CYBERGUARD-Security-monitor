@@ -1,7 +1,7 @@
 import os
-import time
-import threading
 import sqlite3
+import threading
+import time
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, flash
 from extensions import db, login_manager
@@ -9,92 +9,89 @@ from extensions import db, login_manager
 os.makedirs('database', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
 
-
-def ensure_unique_ddos_index():
-    """
-    Creates a partial unique index so SQLite guarantees only
-    ONE UNRESOLVED 'ddos_attack_detected' row can ever exist.
-    Once resolved (resolved=1), a NEW alert can be created.
-    """
+def create_alert(event_type, severity, source_ip, target_endpoint, description):
     try:
         conn = sqlite3.connect('database/company.db')
+        cursor = conn.cursor()
         
-        # Drop old index if exists
-        conn.execute('DROP INDEX IF EXISTS idx_one_ddos_alert')
+        cursor.execute('''
+            SELECT COUNT(*) FROM security_events 
+            WHERE event_type = ? AND resolved = 0
+        ''', (event_type,))
         
-        # Create new index - only blocks UNRESOLVED alerts
-        conn.execute('''
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_one_ddos_alert
-            ON security_events(event_type)
-            WHERE event_type = 'ddos_attack_detected' AND resolved = 0
-        ''')
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            return False
+        
+        cursor.execute('''
+            INSERT INTO security_events 
+            (event_type, severity, source_ip, target_endpoint, description, timestamp, resolved)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (
+            event_type,
+            severity,
+            source_ip,
+            target_endpoint,
+            description,
+            datetime.now().isoformat(),
+            0
+        ))
         conn.commit()
         conn.close()
-        print("✅ Unique index created: only one UNRESOLVED DDoS alert allowed")
+        print(f"✅ Alert created: {event_type}")
+        return True
     except Exception as e:
-        print(f"⚠️ Could not create unique index: {e}")
+        print(f"❌ Error: {e}")
+        return False
 
-
-def ddos_monitor():
+def monitor_attacks():
+    """Single monitor for all attack types - runs every 20 seconds"""
     while True:
         try:
             conn = sqlite3.connect('database/company.db')
             cursor = conn.cursor()
-
-            one_minute_ago = (datetime.now() - timedelta(minutes=1)).isoformat()
+            
+            twenty_sec_ago = (datetime.now() - timedelta(seconds=20)).isoformat()
+            
+            # Get all IPs with high request counts
             cursor.execute('''
                 SELECT ip_address, COUNT(*) as count 
                 FROM activity_logs 
                 WHERE timestamp > ?
                 GROUP BY ip_address 
-                HAVING COUNT(*) > 30
-                LIMIT 1
-            ''', (one_minute_ago,))
-
-            attack = cursor.fetchone()
-
-            if attack:
-                ip, count = attack
-                try:
-                    cursor.execute('''
-                        INSERT INTO security_events 
-                        (event_type, severity, source_ip, target_endpoint, description, timestamp, resolved)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        'ddos_attack_detected',
-                        'high',
-                        ip,
-                        '/',
-                        f'DDoS attack from IP {ip}. {count} requests.',
-                        datetime.now().isoformat(),
-                        0  # UNRESOLVED
-                    ))
-                    conn.commit()
-                    print("✅ DDoS alert created")
-                except sqlite3.IntegrityError:
-                    # Unresolved alert already exists - this is expected
-                    pass
-
+                HAVING COUNT(*) > 5
+                ORDER BY count DESC
+            ''', (twenty_sec_ago,))
+            
+            attacks = cursor.fetchall()
             conn.close()
-
+            
+            for ip, count in attacks:
+                print(f"🔍 Found: {ip} - {count} requests in 20 seconds")
+                
+                # Classify attack type based on count
+                if count > 20:
+                    create_alert('ddos_attack_detected', 'high', ip, '/', f'🔴 DDoS Attack from {ip}. {count} requests.')
+                elif count > 10:
+                    create_alert('request_flood_detected', 'medium', ip, '/', f'🟡 Request Flood from {ip}. {count} requests.')
+                elif count > 5:
+                    create_alert('endpoint_scanner_detected', 'medium', ip, '/', f'🟡 Endpoint Scanner from {ip}. {count} requests.')
+                    
         except Exception as e:
-            print(f"⚠️ ddos_monitor error: {e}")
-
-        time.sleep(60)
-
+            print(f"⚠️ Monitor error: {e}")
+        
+        time.sleep(20)
 
 def create_app(config_name='default'):
     app = Flask(__name__)
     from config import config
     app.config.from_object(config[config_name])
-
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.employee_login'
     login_manager.login_message = 'Please log in to access this page.'
 
     from models.user import User
-
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
@@ -112,141 +109,43 @@ def create_app(config_name='default'):
     @app.route('/')
     def home():
         from utils.logger import log_activity, log_behavior
-        log_activity(
-            user='anonymous',
-            action='page_view',
-            event_type='page_view',
-            ip_address=request.remote_addr,
-            status='success',
-            endpoint='/',
-            details='Home page viewed'
-        )
-        log_behavior(
-            employee_id=None,
-            username='anonymous',
-            behavior_type='page_view',
-            activity='Home page viewed',
-            page_accessed='/',
-            risk_level='low',
-            ip_address=request.remote_addr
-        )
+        log_activity('anonymous', 'page_view', 'page_view', request.remote_addr, 'success', 'Home page viewed', '/')
+        log_behavior(None, 'anonymous', 'page_view', 'Home page viewed', request.remote_addr, '/', None, 'low')
         return render_template('home.html')
 
     @app.route('/about')
     def about():
         from utils.logger import log_activity, log_behavior
-        log_activity(
-            user='anonymous',
-            action='page_view',
-            event_type='page_view',
-            ip_address=request.remote_addr,
-            status='success',
-            endpoint='/about',
-            details='About page viewed'
-        )
-        log_behavior(
-            employee_id=None,
-            username='anonymous',
-            behavior_type='page_view',
-            activity='About page viewed',
-            page_accessed='/about',
-            risk_level='low',
-            ip_address=request.remote_addr
-        )
+        log_activity('anonymous', 'page_view', 'page_view', request.remote_addr, 'success', 'About page viewed', '/about')
+        log_behavior(None, 'anonymous', 'page_view', 'About page viewed', request.remote_addr, '/about', None, 'low')
         return render_template('about.html')
 
     @app.route('/services')
     def services():
         from utils.logger import log_activity, log_behavior
-        log_activity(
-            user='anonymous',
-            action='page_view',
-            event_type='page_view',
-            ip_address=request.remote_addr,
-            status='success',
-            endpoint='/services',
-            details='Services page viewed'
-        )
-        log_behavior(
-            employee_id=None,
-            username='anonymous',
-            behavior_type='page_view',
-            activity='Services page viewed',
-            page_accessed='/services',
-            risk_level='low',
-            ip_address=request.remote_addr
-        )
+        log_activity('anonymous', 'page_view', 'page_view', request.remote_addr, 'success', 'Services page viewed', '/services')
+        log_behavior(None, 'anonymous', 'page_view', 'Services page viewed', request.remote_addr, '/services', None, 'low')
         return render_template('services.html')
 
     @app.route('/contact', methods=['GET', 'POST'])
     def contact():
         from utils.logger import log_activity, log_behavior
-
         if request.method == 'POST':
             name = request.form.get('name')
             email = request.form.get('email')
             subject = request.form.get('subject')
-            message = request.form.get('message')
-
-            log_activity(
-                user='anonymous',
-                action='contact_form_submission',
-                event_type='form_submission',
-                ip_address=request.remote_addr,
-                status='success',
-                endpoint='/contact',
-                details=f'Contact form from {name} ({email}) - Subject: {subject}'
-            )
-            log_behavior(
-                employee_id=None,
-                username='anonymous',
-                behavior_type='form_submission',
-                activity=f'Contact form submission from {name}',
-                page_accessed='/contact',
-                risk_level='low',
-                ip_address=request.remote_addr
-            )
-            flash('Your message has been sent. We\'ll get back to you soon!', 'success')
+            log_activity('anonymous', 'contact_form_submission', 'form_submission', request.remote_addr, 'success', f'Contact from {name}', '/contact')
+            log_behavior(None, 'anonymous', 'form_submission', f'Contact form from {name}', request.remote_addr, '/contact', None, 'low')
+            flash('Your message has been sent!', 'success')
             return render_template('contact.html')
-
-        log_activity(
-            user='anonymous',
-            action='page_view',
-            event_type='page_view',
-            ip_address=request.remote_addr,
-            status='success',
-            endpoint='/contact',
-            details='Contact page viewed'
-        )
-        log_behavior(
-            employee_id=None,
-            username='anonymous',
-            behavior_type='page_view',
-            activity='Contact page viewed',
-            page_accessed='/contact',
-            risk_level='low',
-            ip_address=request.remote_addr
-        )
+        log_activity('anonymous', 'page_view', 'page_view', request.remote_addr, 'success', 'Contact page viewed', '/contact')
+        log_behavior(None, 'anonymous', 'page_view', 'Contact page viewed', request.remote_addr, '/contact', None, 'low')
         return render_template('contact.html')
 
     @app.errorhandler(403)
     def forbidden(error):
-        from utils.logger import log_security_event, log_behavior
-        log_security_event(
-            event_type='unauthorized_access',
-            source_ip=request.remote_addr,
-            target_endpoint=request.path,
-            description=f'Unauthorized access attempt to {request.path}'
-        )
-        log_behavior(
-            employee_id=None,
-            username='anonymous',
-            behavior_type='unauthorized_access',
-            activity=f'Unauthorized access attempt to {request.path}',
-            page_accessed=request.path,
-            risk_level='high',
-            ip_address=request.remote_addr
-        )
+        from utils.logger import log_security_event
+        log_security_event('unauthorized_access', request.remote_addr, request.path, f'Unauthorized access to {request.path}')
         return render_template('errors/403.html'), 403
 
     @app.errorhandler(404)
@@ -255,27 +154,19 @@ def create_app(config_name='default'):
 
     return app
 
-
 app = create_app('development')
 
-# Make sure the DB-level guard against duplicate DDoS alerts exists
-ensure_unique_ddos_index()
-
-thread = threading.Thread(target=ddos_monitor, daemon=True)
-thread.start()
+# Start the single monitor
+threading.Thread(target=monitor_attacks, daemon=True).start()
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
         from database.seed_data import seed_database
         seed_database()
-
-    print("\n" + "=" * 50)
-    print("🚀 Server Running")
-    print("📍 http://localhost:5001")
-    print("=" * 50)
-    print("🛡️ Only ONE UNRESOLVED DDoS alert allowed")
-    print("   Resolve it to allow a NEW alert")
-    print("=" * 50)
-
+    print("\n" + "="*50)
+    print("🚀 Server Running on http://localhost:5001")
+    print("📊 Monitor checks every 20 seconds")
+    print("🔍 Attack thresholds: >5 = scanner, >10 = flood, >20 = DDoS")
+    print("="*50)
     app.run(host='0.0.0.0', port=5001, debug=True, use_reloader=False)

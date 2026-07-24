@@ -1,6 +1,3 @@
-"""
-Authentication Routes - Handles login, logout, and authentication
-"""
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user
 from datetime import datetime
@@ -8,12 +5,55 @@ from app import db
 from models.user import User
 from utils.logger import log_activity, log_security_event, log_behavior
 from utils.ip_tracker import get_client_ip
+import sqlite3
+import os
+
+# TRACK BRUTE FORCE ALERTS - prevents duplicates
+bruteforce_alert_tracker = {}
+
+def create_bruteforce_alert(username, ip_address):
+    """Create ONLY ONE brute force alert per attack"""
+    alert_key = f"bruteforce_{username}"
+    
+    # Check if alert already exists
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'database/company.db')
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COUNT(*) FROM security_events 
+        WHERE event_type = 'bruteforce_attack_detected' AND resolved = 0
+    ''')
+    exists = cursor.fetchone()[0]
+    conn.close()
+    
+    if exists > 0:
+        return False
+    
+    # Create alert
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO security_events 
+        (event_type, severity, source_ip, target_endpoint, description, timestamp, resolved)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        'bruteforce_attack_detected',
+        'high',
+        ip_address,
+        '/auth/admin-login',
+        f'🔴 Brute Force Attack detected on admin {username}. Account locked after 5 failed attempts. Attacker IP: {ip_address}',
+        datetime.now().isoformat(),
+        0
+    ))
+    conn.commit()
+    conn.close()
+    print(f"✅ Brute Force alert created for {username}")
+    return True
 
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/employee-login', methods=['GET', 'POST'])
 def employee_login():
-    """Employee login page and authentication"""
     if request.method == 'GET':
         return render_template('employee_login.html')
     
@@ -25,7 +65,6 @@ def employee_login():
     user = User.query.filter_by(username=username).first()
     
     if user and user.check_password(password):
-        # Check if account is active
         if user.account_status != 'active':
             log_activity(
                 user=username,
@@ -39,12 +78,10 @@ def employee_login():
             flash('Your account is locked. Please contact administrator.', 'danger')
             return render_template('employee_login.html')
         
-        # Successful login
         login_user(user, remember=True)
         user.update_last_login()
         user.reset_failed_attempts()
         
-        # Log activity
         log_activity(
             user=username,
             action='login_success',
@@ -55,7 +92,6 @@ def employee_login():
             details=f'User agent: {user_agent}'
         )
         
-        # Log behavior
         log_behavior(
             employee_id=user.employee_id,
             username=user.username,
@@ -73,7 +109,6 @@ def employee_login():
         else:
             return redirect(url_for('employee.employee_dashboard'))
     else:
-        # Failed login attempts
         if user:
             user.increment_failed_attempts()
             
@@ -99,12 +134,8 @@ def employee_login():
             
             if user.is_locked():
                 flash('Account locked due to too many failed attempts. Contact administrator.', 'danger')
-                log_security_event(
-                    event_type='account_locked',
-                    source_ip=ip_address,
-                    target_endpoint='/auth/employee-login',
-                    description=f'Account {username} locked due to 5 failed login attempts'
-                )
+                # Only create ONE alert
+                create_bruteforce_alert(username, ip_address)
         else:
             log_activity(
                 user=username or 'unknown',
@@ -131,7 +162,6 @@ def employee_login():
 
 @auth_bp.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
-    """Admin login page and authentication"""
     if request.method == 'GET':
         return render_template('admin_login.html')
     
@@ -142,15 +172,7 @@ def admin_login():
     
     user = User.query.filter_by(username=username).first()
     
-    # Block employee from accessing admin
     if user and user.role == 'employee':
-        log_security_event(
-            event_type='employee_admin_access_attempt',
-            source_ip=ip_address,
-            target_endpoint='/auth/admin-login',
-            description=f'Employee {username} attempted to access admin portal'
-        )
-        
         log_activity(
             user=username,
             action='unauthorized_admin_access_attempt',
@@ -174,7 +196,6 @@ def admin_login():
         flash('Unauthorized access attempt logged', 'danger')
         return render_template('admin_login.html')
     
-    # Admin login
     if user and user.check_password(password) and user.role == 'admin':
         login_user(user, remember=True)
         user.update_last_login()
@@ -203,7 +224,6 @@ def admin_login():
         flash(f'Welcome Admin {user.full_name}!', 'success')
         return redirect(url_for('admin.admin_dashboard'))
     else:
-        # Failed admin login
         if user and user.role == 'admin':
             user.increment_failed_attempts()
             
@@ -229,12 +249,8 @@ def admin_login():
             
             if user.is_locked():
                 flash('Admin account locked due to too many failed attempts. Contact administrator.', 'danger')
-                log_security_event(
-                    event_type='admin_account_locked',
-                    source_ip=ip_address,
-                    target_endpoint='/auth/admin-login',
-                    description=f'Admin account {username} locked due to 5 failed login attempts'
-                )
+                # Only create ONE alert
+                create_bruteforce_alert(username, ip_address)
         else:
             log_activity(
                 user=username or 'unknown',
@@ -261,7 +277,6 @@ def admin_login():
 
 @auth_bp.route('/logout')
 def logout():
-    """Logout user"""
     if current_user.is_authenticated:
         log_activity(
             user=current_user.username,
