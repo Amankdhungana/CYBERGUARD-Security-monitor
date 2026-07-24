@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Replicated Company</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="dashboard-container">
+        <div class="sidebar">
+            <h3>Admin Console</h3>
+            <nav>
+                <ul>
+                    <li><a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a></li>
+                    <li><a href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
+                    <li><a href="{{ url_for('admin.view_logs') }}">Activity Logs</a></li>
+                    <li><a href="{{ url_for('admin.view_security_events') }}">Security Events</a></li>
+                    <li><a href="{{ url_for('files.list_files') }}">Company Files</a></li>
+                    <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+                </ul>
+            </nav>
+        </div>
+        
+        <div class="main-content">
+            <h1>Admin Dashboard</h1>
+            
+            <div class="dashboard-cards">
+                <div class="card">
+                    <h3>Total Users</h3>
+                    <div class="value">{{ stats.total_users }}</div>
+                </div>
+                <div class="card">
+                    <h3>Active Users</h3>
+                    <div class="value">{{ stats.active_users }}</div>
+                </div>
+                <div class="card">
+                    <h3>High Severity Events</h3>
+                    <div class="value">{{ stats.high_severity_events }}</div>
+                </div>
+            </div>
+            
+            <h3>Recent Security Events</h3>
+            <table style="margin-bottom: 2rem;">
+                <thead>
+                    <tr><th>Time</th><th>Event Type</th><th>Severity</th><th>Source IP</th></tr>
+                </thead>
+                <tbody>
+                    {% for event in stats.recent_security_events %}
+                    <tr>
+                        <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                        <td>{{ event.event_type }}</td>
+                        <td><span style="color: {% if event.severity == 'high' %}red{% else %}orange{% endif %};">{{ event.severity|upper }}</span></td>
+                        <td>{{ event.source_ip }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <h3>Employee Directory</h3>
+            <table>
+                <thead>
+                    <tr><th>ID</th><th>Name</th><th>Department</th><th>Role</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user.employee_id }}</td>
+                        <td>{{ user.full_name }}</td>
+                        <td>{{ user.department }}</td>
+                        <td>{{ user.role|title }}</td>
+                        <td>{{ user.account_status|title }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</body>
+</html>

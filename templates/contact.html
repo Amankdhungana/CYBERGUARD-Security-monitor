@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Contact Us - Replicated Company{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 3rem 2rem;">
+    <div class="hero-content">
+        <h1>Contact Us</h1>
+        <p>Get in touch with our security experts</p>
+    </div>
+</section>
+
+<div class="container">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; max-width: 1000px; margin: 0 auto;">
+        <div>
+            <h2 style="color: var(--primary-color); margin-bottom: 1.5rem;">Get In Touch</h2>
+            <p style="margin-bottom: 2rem; line-height: 1.8;">
+                Have questions about our security solutions? Need help with a security incident? 
+                Our team of experts is here to help. Reach out to us anytime.
+            </p>
+            
+            <div style="margin-bottom: 2rem;">
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <span style="font-size: 1.5rem; margin-right: 1rem;">📍</span>
+                    <div>
+                        <strong>Address</strong>
+                        <p style="color: var(--text-light);">123 Security Boulevard<br>Tech City, TC 12345</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <span style="font-size: 1.5rem; margin-right: 1rem;">📧</span>
+                    <div>
+                        <strong>Email</strong>
+                        <p style="color: var(--text-light);">security@replicatedcompany.com</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                    <span style="font-size: 1.5rem; margin-right: 1rem;">📱</span>
+                    <div>
+                        <strong>Phone</strong>
+                        <p style="color: var(--text-light);">+1 (555) 123-4567</p>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <span style="font-size: 1.5rem; margin-right: 1rem;">🕐</span>
+                    <div>
+                        <strong>Hours</strong>
+                        <p style="color: var(--text-light);">24/7 Security Operations Center</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div>
+            <h2 style="color: var(--primary-color); margin-bottom: 1.5rem;">Send a Message</h2>
+            <form method="POST" action="{{ url_for('contact') }}">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject" name="subject" required>
+                </div>
+                <div class="form-group">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" rows="4" style="width: 100%; padding: 0.75rem; border: 1px solid #d1d5db; border-radius: 0.375rem; font-family: inherit;" required></textarea>
+                </div>
+                <button type="submit" class="btn-primary" style="width: 100%;">Send Message</button>
+            </form>
+            
+            <div style="margin-top: 1.5rem; background: #fef3c7; padding: 1rem; border-radius: 0.5rem; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; font-size: 0.9rem; color: #92400e;">
+                    <strong>⚠️ For emergencies:</strong> Call our 24/7 Security Operations Center immediately.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
