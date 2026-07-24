@@ -69,7 +69,7 @@ class TestRoutes(unittest.TestCase):
             'password': 'admin123'
         }, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Welcome Admin', response.data)
+        self.assertIn(b'Admin Dashboard', response.data)
     
     def test_admin_login_failure(self):
         """Test failed admin login with wrong password"""
