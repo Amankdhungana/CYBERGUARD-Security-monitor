@@ -7,6 +7,10 @@ It is a complete cybersecurity training environment consisting of a simulated en
 Company System
 It is a fully functional web application simulating a real company environment with employee and admin portals, document management, and comprehensive logging capabilities.
 
+To run it:
+python3 -m replicated_company.run
+
+
 
 Key Features
 
@@ -22,6 +26,13 @@ Professional UI resembling a real business website
 Attack Toolkit
 This is a collection of Python scripts that simulate real-world cyber attacks in a controlled environment.
 
+mac/linux system:
+chmod +x attack_toolkit/quick_attacks.sh
+./attack_toolkit/quick_attacks.sh
+
+windows:
+python -m attack_toolkit.attack_controller
+
 
 Attack Types
 
@@ -33,6 +44,8 @@ DoS – Single-source denial of service
 Monitoring System
 Collects and analyzes logs from the company system and attack toolkit to provide security visibility.
 
+To run monitoring system:
+python3 -m monitoring_system.splash
 
 Key Features
 
