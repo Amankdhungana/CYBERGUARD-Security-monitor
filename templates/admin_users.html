@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Admin{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar">
+        <h3>Admin Console</h3>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
+                <li><a href="{{ url_for('admin.view_logs') }}">Activity Logs</a></li>
+                <li><a href="{{ url_for('admin.view_security_events') }}">Security Events</a></li>
+                <li><a href="{{ url_for('files.list_files') }}">Company Files</a></li>
+                <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+            </ul>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <h1>Manage Users</h1>
+        
+        <div class="dashboard-cards">
+            <div class="card">
+                <h3>Total Users</h3>
+                <div class="value">{{ users|length }}</div>
+            </div>
+            <div class="card">
+                <h3>Admins</h3>
+                <div class="value">{{ users|selectattr('role', 'equalto', 'admin')|list|length }}</div>
+            </div>
+            <div class="card">
+                <h3>Employees</h3>
+                <div class="value">{{ users|selectattr('role', 'equalto', 'employee')|list|length }}</div>
+            </div>
+        </div>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Full Name</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Department</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.employee_id }}</td>
+                    <td>{{ user.full_name }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.department }}</td>
+                    <td><span style="color: {% if user.role == 'admin' %}red{% else %}blue{% endif %}; font-weight: bold;">{{ user.role|upper }}</span></td>
+                    <td><span style="color: {% if user.account_status == 'active' %}green{% else %}red{% endif %};">{{ user.account_status|title }}</span></td>
+                    <td>{{ user.last_login.strftime('%Y-%m-%d %H:%M') if user.last_login else 'Never' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

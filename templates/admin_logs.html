@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Logs - Admin{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="sidebar">
+        <h3>Admin Console</h3>
+        <nav>
+            <ul>
+                <li><a href="{{ url_for('admin.admin_dashboard') }}">Dashboard</a></li>
+                <li><a href="{{ url_for('admin.manage_users') }}">Manage Users</a></li>
+                <li><a href="{{ url_for('admin.view_logs') }}">Activity Logs</a></li>
+                <li><a href="{{ url_for('admin.view_security_events') }}">Security Events</a></li>
+                <li><a href="{{ url_for('files.list_files') }}">Company Files</a></li>
+                <li><a href="{{ url_for('auth.logout') }}">Logout</a></li>
+            </ul>
+        </nav>
+    </div>
+    
+    <div class="main-content">
+        <h1>Activity Logs</h1>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>User</th>
+                    <th>Action</th>
+                    <th>Page</th>
+                    <th>IP Address</th>
+                    <th>Status</th>
+                    <th>Risk Level</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs.items %}
+                <tr>
+                    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ log.user }}</td>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.page_accessed }}</td>
+                    <td>{{ log.ip_address }}</td>
+                    <td><span style="color: {% if log.status == 'success' %}green{% else %}red{% endif %};">{{ log.status|title }}</span></td>
+                    <td><span style="color: {% if log.risk_level == 'high' %}red{% elif log.risk_level == 'medium' %}orange{% else %}green{% endif %};">{{ log.risk_level|title }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        {% if logs.pages > 1 %}
+        <div style="margin-top: 2rem; text-align: center;">
+            {% if logs.has_prev %}
+            <a href="{{ url_for('admin.view_logs', page=logs.prev_num) }}" class="btn-primary" style="padding: 0.5rem 1rem;">Previous</a>
+            {% endif %}
+            <span style="margin: 0 1rem;">Page {{ logs.page }} of {{ logs.pages }}</span>
+            {% if logs.has_next %}
+            <a href="{{ url_for('admin.view_logs', page=logs.next_num) }}" class="btn-primary" style="padding: 0.5rem 1rem;">Next</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

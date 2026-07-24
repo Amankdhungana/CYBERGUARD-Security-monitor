@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Services - Replicated Company{% endblock %}
+
+{% block content %}
+<section class="hero" style="padding: 3rem 2rem;">
+    <div class="hero-content">
+        <h1>Our Services</h1>
+        <p>Comprehensive cybersecurity solutions for modern enterprises</p>
+    </div>
+</section>
+
+<div class="container">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem; max-width: 1200px; margin: 0 auto;">
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🛡️</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Threat Detection & Response</h3>
+            <p style="line-height: 1.8;">Real-time monitoring and advanced threat detection using AI-powered analytics to identify and respond to security incidents before they impact your business.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ 24/7 Security Monitoring</li>
+                <li>✓ AI-Powered Threat Detection</li>
+                <li>✓ Incident Response Planning</li>
+            </ul>
+        </div>
+        
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Data Protection</h3>
+            <p style="line-height: 1.8;">End-to-end encryption, data loss prevention, and secure data storage solutions to protect your most sensitive business information.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ End-to-End Encryption</li>
+                <li>✓ Data Loss Prevention</li>
+                <li>✓ Secure Cloud Storage</li>
+            </ul>
+        </div>
+        
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Compliance Management</h3>
+            <p style="line-height: 1.8;">Automated compliance monitoring and reporting to ensure your organization meets regulatory requirements including GDPR, HIPAA, and ISO standards.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ GDPR Compliance</li>
+                <li>✓ HIPAA Compliance</li>
+                <li>✓ ISO 27001 Certification</li>
+            </ul>
+        </div>
+        
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🚨</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Security Audits</h3>
+            <p style="line-height: 1.8;">Comprehensive security assessments and penetration testing to identify vulnerabilities and strengthen your security posture.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ Vulnerability Assessments</li>
+                <li>✓ Penetration Testing</li>
+                <li>✓ Security Audits</li>
+            </ul>
+        </div>
+        
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">🎓</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Security Training</h3>
+            <p style="line-height: 1.8;">Employee security awareness training and phishing simulations to build a security-conscious culture within your organization.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ Security Awareness Training</li>
+                <li>✓ Phishing Simulations</li>
+                <li>✓ Incident Response Drills</li>
+            </ul>
+        </div>
+        
+        <div style="background: white; padding: 2rem; border-radius: 0.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="font-size: 3rem; margin-bottom: 1rem;">☁️</div>
+            <h3 style="color: var(--primary-color); margin-bottom: 1rem;">Cloud Security</h3>
+            <p style="line-height: 1.8;">Secure cloud infrastructure and application protection for AWS, Azure, and Google Cloud platforms.</p>
+            <ul style="margin-top: 1rem; list-style: none; padding: 0;">
+                <li>✓ Cloud Infrastructure Security</li>
+                <li>✓ Application Protection</li>
+                <li>✓ Cloud Compliance Monitoring</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
