@@ -3,15 +3,12 @@ from extensions import db
 from models.activity_log import ActivityLog
 from models.security_event import SecurityEvent
 from models.behavior_log import BehaviorLog
-from flask import request, session
 import uuid
 
-def get_session_id(): # Retrieve or generate a unique session ID for the current user session, ensuring consistent tracking of user activities across requests
-    if 'session_id' not in session:
-        session['session_id'] = str(uuid.uuid4())
-    return session['session_id']
+def get_session_id():
+    return str(uuid.uuid4())
 
-def get_user_info(): # Retrieve information about the currently authenticated user, including username, full name, role, and employee ID. If the user is not authenticated, return default values indicating an anonymous user. This function is useful for logging and auditing purposes to associate actions with specific users.
+def get_user_info():
     from flask_login import current_user
     
     user_info = {
@@ -22,7 +19,7 @@ def get_user_info(): # Retrieve information about the currently authenticated us
         'employee_id': None
     }
     
-    if current_user and current_user.is_authenticated: # If the user is authenticated, populate the user_info dictionary with their details for accurate logging and auditing of actions performed within the application
+    if current_user and current_user.is_authenticated:
         user_info['user'] = current_user.username
         user_info['username'] = current_user.username
         user_info['full_name'] = current_user.full_name
@@ -31,12 +28,11 @@ def get_user_info(): # Retrieve information about the currently authenticated us
     
     return user_info
 
-def log_activity(user, action, event_type, ip_address,  # Log user activity with detailed information including user identity, action performed, event type, IP address, status, endpoint accessed, and additional details for auditing purposes
+def log_activity(user, action, event_type, ip_address, 
                  status='success', details=None, endpoint=None, page_accessed=None):
     try:
         user_info = get_user_info()
-        
-        page = page_accessed or endpoint or (request.path if request else None)
+        page = page_accessed or endpoint
         
         log_entry = ActivityLog(
             user=user or user_info.get('user', 'anonymous'),
@@ -50,11 +46,8 @@ def log_activity(user, action, event_type, ip_address,  # Log user activity with
             timestamp=datetime.utcnow(),
             ip_address=ip_address,
             endpoint=page,
-            http_method=request.method if request else 'GET',
-            user_agent=request.headers.get('User-Agent', '') if request else '',
             details=details,
-            session_id=get_session_id(),
-            page_accessed=page
+            session_id=get_session_id()
         )
         
         db.session.add(log_entry)
@@ -64,7 +57,7 @@ def log_activity(user, action, event_type, ip_address,  # Log user activity with
         print(f"Failed to log activity: {e}")
         db.session.rollback()
 
-def log_security_event(event_type, source_ip, target_endpoint,  # Log security events with detailed information including event type, source IP, target endpoint, description, user identity, and severity level for auditing and monitoring potential security threats
+def log_security_event(event_type, source_ip, target_endpoint, 
                        description, user=None, severity='low'):
     try:
         user_info = get_user_info()
@@ -79,8 +72,7 @@ def log_security_event(event_type, source_ip, target_endpoint,  # Log security e
             timestamp=datetime.utcnow(),
             source_ip=source_ip,
             target_endpoint=target_endpoint,
-            session_id=get_session_id(),
-            user_agent=request.headers.get('User-Agent', '') if request else ''
+            session_id=get_session_id()
         )
         
         db.session.add(event)
@@ -90,7 +82,7 @@ def log_security_event(event_type, source_ip, target_endpoint,  # Log security e
         print(f"Failed to log security event: {e}")
         db.session.rollback()
 
-def log_behavior(employee_id, username, behavior_type, activity,  # Log user behavior with detailed information including employee ID, username, behavior type, activity description, IP address, page accessed, and risk level for auditing and monitoring user actions within the application
+def log_behavior(employee_id, username, behavior_type, activity, 
                  ip_address=None, page_accessed=None, details=None, risk_level='low'):
     try:
         user_info = get_user_info()
@@ -104,20 +96,21 @@ def log_behavior(employee_id, username, behavior_type, activity,  # Log user beh
             behavior_type=behavior_type,
             activity=activity,
             timestamp=datetime.utcnow(),
-            ip_address=ip_address or (request.remote_addr if request else None),
-            page_accessed=page_accessed or (request.path if request else None),
+            ip_address=ip_address,
+            page_accessed=page_accessed,
             session_id=get_session_id(),
-            user_agent=request.headers.get('User-Agent', '') if request else '',
             risk_level=risk_level,
             details=details
         )
         
         db.session.add(behavior)
         db.session.commit()
+        return True
         
-    except Exception as e: # Log any exceptions that occur during the logging of user behavior, ensuring that failures in logging do not disrupt the main application flow and providing feedback for debugging and monitoring purposes
+    except Exception as e:
         print(f"Failed to log behavior: {e}")
         db.session.rollback()
+        return False
 
 def log_file_access(user, filename, action, ip_address, details=None):
     log_activity(
@@ -129,4 +122,3 @@ def log_file_access(user, filename, action, ip_address, details=None):
         details=f'File: {filename}, {details or ""}',
         endpoint=f'/files/{filename}'
     )
-    

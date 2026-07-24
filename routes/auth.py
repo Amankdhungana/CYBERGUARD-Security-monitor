@@ -1,15 +1,19 @@
+"""
+Authentication Routes - Handles login, logout, and authentication
+"""
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_user, logout_user, current_user
 from datetime import datetime
 from app import db
 from models.user import User
-from utils.logger import log_activity, log_security_event
+from utils.logger import log_activity, log_security_event, log_behavior
 from utils.ip_tracker import get_client_ip
 
 auth_bp = Blueprint('auth', __name__)
 
-@auth_bp.route('/employee-login', methods=['GET', 'POST']) # Route for employee login, handling both GET and POST requests for the login form
+@auth_bp.route('/employee-login', methods=['GET', 'POST'])
 def employee_login():
+    """Employee login page and authentication"""
     if request.method == 'GET':
         return render_template('employee_login.html')
     
@@ -20,7 +24,8 @@ def employee_login():
     
     user = User.query.filter_by(username=username).first()
     
-    if user and user.check_password(password): # Check if the user exists and the password is correct
+    if user and user.check_password(password):
+        # Check if account is active
         if user.account_status != 'active':
             log_activity(
                 user=username,
@@ -34,10 +39,12 @@ def employee_login():
             flash('Your account is locked. Please contact administrator.', 'danger')
             return render_template('employee_login.html')
         
+        # Successful login
         login_user(user, remember=True)
         user.update_last_login()
         user.reset_failed_attempts()
         
+        # Log activity
         log_activity(
             user=username,
             action='login_success',
@@ -48,6 +55,17 @@ def employee_login():
             details=f'User agent: {user_agent}'
         )
         
+        # Log behavior
+        log_behavior(
+            employee_id=user.employee_id,
+            username=user.username,
+            behavior_type='login',
+            activity=f'User {user.username} logged in successfully',
+            page_accessed='/auth/employee-login',
+            risk_level='low',
+            ip_address=ip_address
+        )
+        
         flash(f'Welcome back, {user.full_name}!', 'success')
         
         if user.role == 'admin':
@@ -55,6 +73,7 @@ def employee_login():
         else:
             return redirect(url_for('employee.employee_dashboard'))
     else:
+        # Failed login attempts
         if user:
             user.increment_failed_attempts()
             
@@ -66,6 +85,16 @@ def employee_login():
                 status='failed',
                 endpoint='/auth/employee-login',
                 details=f'Failed attempt {user.failed_login_attempts} of 5'
+            )
+            
+            log_behavior(
+                employee_id=user.employee_id,
+                username=user.username,
+                behavior_type='login_failed',
+                activity=f'Failed login attempt for {user.username}',
+                page_accessed='/auth/employee-login',
+                risk_level='medium',
+                ip_address=ip_address
             )
             
             if user.is_locked():
@@ -86,12 +115,23 @@ def employee_login():
                 endpoint='/auth/employee-login',
                 details=f'Non-existent username: {username}'
             )
+            
+            log_behavior(
+                employee_id=None,
+                username=username or 'unknown',
+                behavior_type='login_failed',
+                activity=f'Failed login attempt with non-existent user: {username}',
+                page_accessed='/auth/employee-login',
+                risk_level='low',
+                ip_address=ip_address
+            )
         
         flash('Invalid username or password', 'danger')
         return render_template('employee_login.html')
 
 @auth_bp.route('/admin-login', methods=['GET', 'POST'])
 def admin_login():
+    """Admin login page and authentication"""
     if request.method == 'GET':
         return render_template('admin_login.html')
     
@@ -102,7 +142,8 @@ def admin_login():
     
     user = User.query.filter_by(username=username).first()
     
-    if user and user.role == 'employee': # Log unauthorized admin access attempt by an employee
+    # Block employee from accessing admin
+    if user and user.role == 'employee':
         log_security_event(
             event_type='employee_admin_access_attempt',
             source_ip=ip_address,
@@ -120,10 +161,21 @@ def admin_login():
             details='Employee attempted admin login'
         )
         
+        log_behavior(
+            employee_id=user.employee_id,
+            username=user.username,
+            behavior_type='unauthorized_access',
+            activity=f'Employee {user.username} attempted to access admin portal',
+            page_accessed='/auth/admin-login',
+            risk_level='high',
+            ip_address=ip_address
+        )
+        
         flash('Unauthorized access attempt logged', 'danger')
         return render_template('admin_login.html')
     
-    if user and user.check_password(password) and user.role == 'admin': # Check if the user exists, the password is correct, and the role is admin
+    # Admin login
+    if user and user.check_password(password) and user.role == 'admin':
         login_user(user, remember=True)
         user.update_last_login()
         user.reset_failed_attempts()
@@ -138,9 +190,20 @@ def admin_login():
             details=f'Admin login from user agent: {user_agent}'
         )
         
+        log_behavior(
+            employee_id=user.employee_id,
+            username=user.username,
+            behavior_type='admin_login',
+            activity=f'Admin {user.username} logged in',
+            page_accessed='/auth/admin-login',
+            risk_level='low',
+            ip_address=ip_address
+        )
+        
         flash(f'Welcome Admin {user.full_name}!', 'success')
         return redirect(url_for('admin.admin_dashboard'))
-    else: # Handle failed admin login attempts, incrementing failed attempts and logging the event
+    else:
+        # Failed admin login
         if user and user.role == 'admin':
             user.increment_failed_attempts()
             
@@ -152,6 +215,16 @@ def admin_login():
                 status='failed',
                 endpoint='/auth/admin-login',
                 details=f'Failed admin attempt {user.failed_login_attempts} of 5'
+            )
+            
+            log_behavior(
+                employee_id=user.employee_id,
+                username=user.username,
+                behavior_type='admin_login_failed',
+                activity=f'Failed admin login attempt for {user.username}',
+                page_accessed='/auth/admin-login',
+                risk_level='medium',
+                ip_address=ip_address
             )
             
             if user.is_locked():
@@ -172,12 +245,23 @@ def admin_login():
                 endpoint='/auth/admin-login',
                 details=f'Failed admin login attempt'
             )
+            
+            log_behavior(
+                employee_id=None,
+                username=username or 'unknown',
+                behavior_type='admin_login_failed',
+                activity=f'Failed admin login attempt with user: {username}',
+                page_accessed='/auth/admin-login',
+                risk_level='low',
+                ip_address=ip_address
+            )
         
         flash('Invalid admin credentials', 'danger')
         return render_template('admin_login.html')
 
-@auth_bp.route('/logout') #   Route to log out the current user, clearing their session and redirecting them to the home page
+@auth_bp.route('/logout')
 def logout():
+    """Logout user"""
     if current_user.is_authenticated:
         log_activity(
             user=current_user.username,
@@ -188,6 +272,17 @@ def logout():
             endpoint='/auth/logout',
             details='User logged out successfully'
         )
+        
+        log_behavior(
+            employee_id=current_user.employee_id,
+            username=current_user.username,
+            behavior_type='logout',
+            activity=f'User {current_user.username} logged out',
+            page_accessed='/auth/logout',
+            risk_level='low',
+            ip_address=get_client_ip(request)
+        )
+        
         logout_user()
         flash('You have been logged out.', 'info')
     

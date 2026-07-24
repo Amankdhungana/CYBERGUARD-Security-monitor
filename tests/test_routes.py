@@ -12,20 +12,25 @@ class TestRoutes(unittest.TestCase):
     """Test cases for Flask routes - authentication, access control, and pages"""
     
     def setUp(self):
-        """Setup test environment"""
+        """Setup test environment - isolates database to memory safely"""
+        # 1. Update configurations before initializing contexts
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
         self.app = app.test_client()
+        
+        # 2. Force the active SQLAlchemy engine to drop its disk bind and connect to memory
         with app.app_context():
-            db.create_all()
+            db.engine.dispose()  # Disconnects from company.db hard file
+            db.create_all()      # Builds fresh tables in RAM only
             self.create_test_user()
     
     def tearDown(self):
-        """Cleanup after tests"""
+        """Cleanup after tests - safely cleans the in-memory data cache"""
         with app.app_context():
             db.session.remove()
-            db.drop_all()
+            db.drop_all()       # Drops memory tables only
+            db.engine.dispose() # Clears memory engine footprints cleanly
     
     def create_test_user(self):
         """Helper to create a test admin user"""
@@ -47,7 +52,6 @@ class TestRoutes(unittest.TestCase):
         """Test that home page loads successfully"""
         response = self.app.get('/')
         self.assertEqual(response.status_code, 200)
-        # Verify page content
         self.assertIn(b'Replicated Company', response.data)
     
     def test_employee_login_page(self):
@@ -80,19 +84,17 @@ class TestRoutes(unittest.TestCase):
         self.assertIn(b'Invalid admin credentials', response.data)
     
     def test_protected_route_redirects(self):
-        """Test that protected routes redirect to login when not authenticated(but the bug kept intentionally)"""
+        """Test that protected routes redirect to login when not authenticated (but the bug kept intentionally)"""
         response = self.app.get('/admin/dashboard')
-        # Should redirect to login (302), but due to the bug, it returns 200. This test will fail until the bug is fixed.
+        # Due to the intentional bug, it returns 200 instead of 302
         self.assertEqual(response.status_code, 200)
     
     def test_logout(self):
         """Test that logout works"""
-        # First login
         self.app.post('/auth/admin-login', data={
             'username': 'admin',
             'password': 'admin123'
         })
-        # Then logout
         response = self.app.get('/auth/logout', follow_redirects=True)
         self.assertEqual(response.status_code, 200)
 

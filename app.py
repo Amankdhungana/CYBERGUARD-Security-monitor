@@ -1,34 +1,35 @@
+"""
+Main Flask Application - Entry point for the company system
+"""
 import os
 from flask import Flask, render_template, request, flash
 from datetime import datetime
-
-
 from extensions import db, login_manager
 
-
-os.makedirs('database', exist_ok=True) # Create the 'database' directory if it doesn't exist to store the SQLite database file and ensure that the application has a designated location for its database files
+# Create necessary directories
+os.makedirs('database', exist_ok=True)
 os.makedirs('logs', exist_ok=True)
 
-def create_app(config_name='default'): # Create and configure the Flask application instance based on the specified configuration name
+def create_app(config_name='default'):
+    """Create and configure the Flask application"""
     app = Flask(__name__)
     
     from config import config
     app.config.from_object(config[config_name])
     
-    
+    # Initialize extensions
     db.init_app(app)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.employee_login'
     login_manager.login_message = 'Please log in to access this page.'
     
-    # Import models here
     from models.user import User
     
     @login_manager.user_loader
     def load_user(user_id):
         return User.query.get(int(user_id))
     
-    # Import and register blueprints
+    # Register blueprints
     from routes.auth import auth_bp
     from routes.employee import employee_bp
     from routes.admin import admin_bp
@@ -39,9 +40,10 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(files_bp, url_prefix='/files')
     
-    @app.route('/') # Home route that logs the page view activity and renders the home page template
+    @app.route('/')
     def home():
-        from utils.logger import log_activity
+        """Homepage - Company landing page"""
+        from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
             action='page_view',
@@ -51,11 +53,23 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
             endpoint='/',
             details='Home page viewed'
         )
+        
+        log_behavior(
+            employee_id=None,
+            username='anonymous',
+            behavior_type='page_view',
+            activity='Home page viewed',
+            page_accessed='/',
+            risk_level='low',
+            ip_address=request.remote_addr
+        )
+        
         return render_template('home.html')
     
-    @app.route('/about') # About route that logs the page view activity and renders the about page template
+    @app.route('/about')
     def about():
-        from utils.logger import log_activity
+        """About page"""
+        from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
             action='page_view',
@@ -65,11 +79,23 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
             endpoint='/about',
             details='About page viewed'
         )
+        
+        log_behavior(
+            employee_id=None,
+            username='anonymous',
+            behavior_type='page_view',
+            activity='About page viewed',
+            page_accessed='/about',
+            risk_level='low',
+            ip_address=request.remote_addr
+        )
+        
         return render_template('about.html')
     
-    @app.route('/services') # Services route that logs the page view activity and renders the services page template
+    @app.route('/services')
     def services():
-        from utils.logger import log_activity
+        """Services page"""
+        from utils.logger import log_activity, log_behavior
         log_activity(
             user='anonymous',
             action='page_view',
@@ -79,11 +105,23 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
             endpoint='/services',
             details='Services page viewed'
         )
+        
+        log_behavior(
+            employee_id=None,
+            username='anonymous',
+            behavior_type='page_view',
+            activity='Services page viewed',
+            page_accessed='/services',
+            risk_level='low',
+            ip_address=request.remote_addr
+        )
+        
         return render_template('services.html')
     
-    @app.route('/contact', methods=['GET', 'POST']) # Contact route that handles both GET and POST requests, logging the page view activity and form submission activity for auditing purposes
+    @app.route('/contact', methods=['GET', 'POST'])
     def contact():
-        from utils.logger import log_activity
+        """Contact page with form submission"""
+        from utils.logger import log_activity, log_behavior
         
         if request.method == 'POST':
             name = request.form.get('name')
@@ -101,6 +139,16 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
                 details=f'Contact form from {name} ({email}) - Subject: {subject}'
             )
             
+            log_behavior(
+                employee_id=None,
+                username='anonymous',
+                behavior_type='form_submission',
+                activity=f'Contact form submission from {name}',
+                page_accessed='/contact',
+                risk_level='low',
+                ip_address=request.remote_addr
+            )
+            
             flash('Your message has been sent. We\'ll get back to you soon!', 'success')
             return render_template('contact.html')
         
@@ -113,21 +161,45 @@ def create_app(config_name='default'): # Create and configure the Flask applicat
             endpoint='/contact',
             details='Contact page viewed'
         )
+        
+        log_behavior(
+            employee_id=None,
+            username='anonymous',
+            behavior_type='page_view',
+            activity='Contact page viewed',
+            page_accessed='/contact',
+            risk_level='low',
+            ip_address=request.remote_addr
+        )
+        
         return render_template('contact.html')
     
-    @app.errorhandler(403) # Error handler for 403 Forbidden errors, logging the unauthorized access attempt and rendering a custom 403 error page
+    @app.errorhandler(403)
     def forbidden(error):
-        from utils.logger import log_security_event
+        """403 Forbidden handler"""
+        from utils.logger import log_security_event, log_behavior
         log_security_event(
             event_type='unauthorized_access',
             source_ip=request.remote_addr,
             target_endpoint=request.path,
             description=f'Unauthorized access attempt to {request.path}'
         )
+        
+        log_behavior(
+            employee_id=None,
+            username='anonymous',
+            behavior_type='unauthorized_access',
+            activity=f'Unauthorized access attempt to {request.path}',
+            page_accessed=request.path,
+            risk_level='high',
+            ip_address=request.remote_addr
+        )
+        
         return render_template('errors/403.html'), 403
     
-    @app.errorhandler(404) # Error handler for 404 Not Found errors, rendering a custom 404 error page
+    @app.errorhandler(404)
     def not_found(error):
+        """404 Not Found handler"""
         return render_template('errors/404.html'), 404
     
     return app
@@ -145,6 +217,7 @@ if __name__ == '__main__':
     print("🚀 Replicated Company Limited Server Running")
     print("="*50)
     print(f"📍 Local:    http://localhost:5001")
+    print(f"📍 Network:  http://192.168.101.2:5001")
     print("="*50)
     print("🔑 Login Credentials:")
     print("   Admin:    john.smith / Admin@123")
@@ -154,3 +227,4 @@ if __name__ == '__main__':
     print("="*50 + "\n")
     
     app.run(host='0.0.0.0', port=5001, debug=True)
+    
