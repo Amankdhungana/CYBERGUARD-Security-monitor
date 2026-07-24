@@ -1,7 +1,7 @@
 import sqlite3
 import os
 
-def init_database(): # Initialize the database and create necessary tables
+def init_database():
     db_path = 'database/company.db'
     
     if os.path.exists(db_path):
@@ -10,7 +10,8 @@ def init_database(): # Initialize the database and create necessary tables
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
-    cursor.execute('''         # Create users table
+    # Create users table 
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id TEXT UNIQUE NOT NULL,
@@ -28,40 +29,71 @@ def init_database(): # Initialize the database and create necessary tables
         )
     ''')
     
-    cursor.execute('''         # Create activity logs table
+    # Create activity_logs table
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS activity_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user TEXT NOT NULL,
+            username TEXT,
+            full_name TEXT,
+            role TEXT,
+            employee_id TEXT,
             action TEXT NOT NULL,
-            page_accessed TEXT,
-            ip_address TEXT NOT NULL,
-            user_agent TEXT,
-            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            event_type TEXT NOT NULL,
             status TEXT DEFAULT 'success',
-            risk_level TEXT DEFAULT 'low',
-            details TEXT
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT NOT NULL,
+            endpoint TEXT,
+            http_method TEXT,
+            user_agent TEXT,
+            details TEXT,
+            session_id TEXT
         )
     ''')
     
-    cursor.execute('''         # Create security events table
+    # Create security_events table
+    cursor.execute('''
         CREATE TABLE IF NOT EXISTS security_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             event_type TEXT NOT NULL,
-            source_ip TEXT NOT NULL,
-            target_endpoint TEXT,
-            severity TEXT NOT NULL,
+            severity TEXT DEFAULT 'low',
             description TEXT NOT NULL,
             timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            recommendation TEXT,
-            resolved BOOLEAN DEFAULT 0
+            source_ip TEXT NOT NULL,
+            target_endpoint TEXT,
+            resolved BOOLEAN DEFAULT 0,
+            session_id TEXT,
+            user_agent TEXT
+        )
+    ''')
+    
+    # Create behavior_logs table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS behavior_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            employee_id TEXT NOT NULL,
+            username TEXT NOT NULL,
+            full_name TEXT,
+            department TEXT,
+            role TEXT,
+            behavior_type TEXT NOT NULL,
+            activity TEXT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ip_address TEXT,
+            page_accessed TEXT,
+            session_id TEXT,
+            user_agent TEXT,
+            risk_level TEXT DEFAULT 'low',
+            details TEXT,
+            day_of_week INTEGER,
+            hour_of_day INTEGER
         )
     ''')
     
     conn.commit()
     conn.close()
     
-    print("Database initialized successfully!")
+    print("✅ Database initialized successfully!")
 
 if __name__ == '__main__':
     init_database()
-    
